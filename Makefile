@@ -3,5 +3,5 @@ all: run
 build:
 	go build
 
-run:
+run: build
 	./go-pomodoro
