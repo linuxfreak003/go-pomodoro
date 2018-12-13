@@ -21,8 +21,8 @@ const (
 
 var layout = "06-02-01 15:04:05"
 
-func startMusic(app string, minutes int) {
-	log.Infof("[%v] Starting music on %s for %d minutes", time.Now().Format(layout), app, minutes)
+func startMusic(app string) {
+	log.Infof("[%v] Starting music on %s", time.Now().Format(layout), app)
 	cmd := exec.Command("osascript", fmt.Sprintf("osascript -e 'tell app %s to play'", app))
 	err := cmd.Run()
 	if err != nil {
@@ -30,8 +30,8 @@ func startMusic(app string, minutes int) {
 	}
 }
 
-func stopMusic(app string, minutes int) {
-	log.Infof("[%v] Stopping music on %s for %d minutes", time.Now().Format(layout), app, minutes)
+func stopMusic(app string) {
+	log.Infof("[%v] Stopping music on %s", time.Now().Format(layout), app)
 	cmd := exec.Command("osascript", fmt.Sprintf("osascript -e 'tell app %s to pause'", app))
 	err := cmd.Run()
 	if err != nil {
@@ -40,28 +40,32 @@ func stopMusic(app string, minutes int) {
 }
 
 func Timer(actions chan Action, app string, minutes, interval int) {
+	startMusic(app)
 	timer1 := time.NewTimer(time.Duration(minutes) * time.Minute)
-	startMusic(app, minutes)
+	log.Infof("Timer set for %d minutes", minutes)
 	timer2 := &time.Timer{
 		C: make(chan time.Time),
 	}
 	for {
 		select {
 		case <-timer1.C:
-			stopMusic(app, interval)
+			stopMusic(app)
 			timer2 = time.NewTimer(time.Duration(interval) * time.Minute)
+			log.Infof("Timer set for %d minutes", interval)
 		case <-timer2.C:
-			startMusic(app, minutes)
+			startMusic(app)
 			timer1 = time.NewTimer(time.Duration(minutes) * time.Minute)
+			log.Infof("Timer set for %d minutes", minutes)
 		case a := <-actions:
 			switch a {
 			case Start:
-				startMusic(app, minutes)
+				startMusic(app)
 			case Stop:
-				stopMusic(app, interval)
+				stopMusic(app)
 			case Reset:
+				startMusic(app)
 				timer1 = time.NewTimer(time.Duration(minutes) * time.Minute)
-				startMusic(app, minutes)
+				log.Infof("Timer set for %d minutes", minutes)
 			}
 		}
 	}
