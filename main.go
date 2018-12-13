@@ -27,7 +27,7 @@ func startMusic(app string) {
 	cmd := exec.Command("osascript", "-e", cmdString)
 	err := cmd.Run()
 	if err != nil {
-		log.Errorf("%v : %v", out, err)
+		log.Errorf("%v", err)
 	}
 }
 
