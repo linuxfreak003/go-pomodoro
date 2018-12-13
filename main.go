@@ -23,16 +23,18 @@ var layout = "06-02-01 15:04:05"
 
 func startMusic(app string) {
 	log.Infof("[%v] Starting music on %s", time.Now().Format(layout), app)
-	cmd := exec.Command("osascript", fmt.Sprintf("osascript -e 'tell app %s to play'", app))
+	cmdString := fmt.Sprintf("tell app \"%s\" to play", app)
+	cmd := exec.Command("osascript", "-e", cmdString)
 	err := cmd.Run()
 	if err != nil {
-		log.Errorf("%v", err)
+		log.Errorf("%v : %v", out, err)
 	}
 }
 
 func stopMusic(app string) {
 	log.Infof("[%v] Stopping music on %s", time.Now().Format(layout), app)
-	cmd := exec.Command("osascript", fmt.Sprintf("osascript -e 'tell app %s to pause'", app))
+	cmdString := fmt.Sprintf("tell app \"%s\" to pause", app)
+	cmd := exec.Command("osascript", "-e", cmdString)
 	err := cmd.Run()
 	if err != nil {
 		log.Errorf("%v", err)
