@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Action int
@@ -17,41 +19,49 @@ const (
 	Reset Action = iota
 )
 
-func startMusic(app string) {
-	fmt.Printf("Starting music on %s\n", app)
+var layout = "06-02-01 15:04:05"
+
+func startMusic(app string, minutes int) {
+	log.Infof("[%v] Starting music on %s for %d minutes", time.Now().Format(layout), app, minutes)
 	cmd := exec.Command("osascript", fmt.Sprintf("osascript -e 'tell app %s to play'", app))
-	_ = cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		log.Errorf("%v", err)
+	}
 }
 
-func stopMusic(app string) {
-	fmt.Printf("Stopping music on %s\n", app)
+func stopMusic(app string, minutes int) {
+	log.Infof("[%v] Stopping music on %s for %d minutes", time.Now().Format(layout), app, minutes)
 	cmd := exec.Command("osascript", fmt.Sprintf("osascript -e 'tell app %s to pause'", app))
-	_ = cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		log.Errorf("%v", err)
+	}
 }
 
 func Timer(actions chan Action, app string, minutes, interval int) {
 	timer1 := time.NewTimer(time.Duration(minutes) * time.Minute)
-	startMusic(app)
+	startMusic(app, minutes)
 	timer2 := &time.Timer{
 		C: make(chan time.Time),
 	}
 	for {
 		select {
 		case <-timer1.C:
-			stopMusic(app)
+			stopMusic(app, interval)
 			timer2 = time.NewTimer(time.Duration(interval) * time.Minute)
 		case <-timer2.C:
-			startMusic(app)
+			startMusic(app, minutes)
 			timer1 = time.NewTimer(time.Duration(minutes) * time.Minute)
 		case a := <-actions:
 			switch a {
 			case Start:
-				startMusic(app)
+				startMusic(app, minutes)
 			case Stop:
-				stopMusic(app)
+				stopMusic(app, interval)
 			case Reset:
 				timer1 = time.NewTimer(time.Duration(minutes) * time.Minute)
-				startMusic(app)
+				startMusic(app, minutes)
 			}
 		}
 	}
@@ -75,7 +85,8 @@ func main() {
 	// command line interface
 	go func() {
 		for {
-			fmt.Printf("> ")
+			time.Sleep(time.Second * 1)
+			fmt.Printf("$ ")
 			scanner.Scan()
 			text := scanner.Text()
 			switch text {
@@ -83,12 +94,13 @@ func main() {
 				actions <- Start
 			case "stop":
 				actions <- Stop
-			case "q":
+			case "reset":
+				actions <- Reset
+			case "q", "quit", "exit":
 				done <- struct{}{}
 			default:
-				fmt.Printf("command not recognized: %s\n", text)
+				log.Warnf("command not recognized: %s\n", text)
 			}
-			time.Sleep(time.Second * 1)
 		}
 	}()
 
