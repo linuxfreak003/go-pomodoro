@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+enum State {
+    FOCUS = 0;
+    BREAK = 1;
+}
+
+message Profile {
+    string name = 1;
+}
+
+message Timer {
+    double duration = 1;
+    State state = 2;
+}
+
+service Pomodoro {
+    rpc Sync (Profile) returns (Timer);
+}
