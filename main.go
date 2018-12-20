@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -19,23 +21,46 @@ const (
 	Reset Action = iota
 )
 
-var layout = "06-02-01 15:04:05"
+var timeLayout = "06-02-01 15:04:05"
+
+func dbus(app, cs string) error {
+	cmdString := fmt.Sprintf("--print-reply --dest=org.mpris.MediaPlayer2.%s /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.%s", app, cs)
+	cmd := exec.Command("dbus-send", strings.Split(cmdString, " ")...)
+	return cmd.Run()
+}
+func osascript(app, cs string) error {
+	cmdString := fmt.Sprintf("tell app \"%s\" to %s", app, cs)
+	cmd := exec.Command("osascript", "-e", cmdString)
+	return cmd.Run()
+}
 
 func startMusic(app string) {
-	log.Infof("[%v] Starting music on %s", time.Now().Format(layout), app)
-	cmdString := fmt.Sprintf("tell app \"%s\" to play", app)
-	cmd := exec.Command("osascript", "-e", cmdString)
-	err := cmd.Run()
+	log.Infof("[%v] Starting music on %s", time.Now().Format(timeLayout), app)
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = dbus(app, "Play")
+	case "darwin":
+		err = osascript(app, "play")
+	default:
+		log.Fatalf("unknown operating system")
+	}
 	if err != nil {
 		log.Errorf("%v", err)
 	}
 }
 
 func stopMusic(app string) {
-	log.Infof("[%v] Stopping music on %s", time.Now().Format(layout), app)
-	cmdString := fmt.Sprintf("tell app \"%s\" to pause", app)
-	cmd := exec.Command("osascript", "-e", cmdString)
-	err := cmd.Run()
+	log.Infof("[%v] Stopping music on %s", time.Now().Format(timeLayout), app)
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = dbus(app, "Pause")
+	case "darwin":
+		err = osascript(app, "pause")
+	default:
+		log.Fatalf("unknown operating system")
+	}
 	if err != nil {
 		log.Errorf("%v", err)
 	}
@@ -74,6 +99,9 @@ func Timer(actions chan Action, app string, minutes, interval int) {
 }
 
 func main() {
+	if runtime.GOOS != "windows" {
+		fmt.Println(runtime.GOOS)
+	}
 	var minutes, interval int
 	var app string
 	flag.IntVar(&minutes, "length", 25, "pomodoro length in minutes")

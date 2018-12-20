@@ -1,6 +1,6 @@
 all: run
 
-build:
+build: generate
 	go build
 
 generate:
