@@ -33,18 +33,20 @@ func osascript(app, cs string) error {
 	cmd := exec.Command("osascript", "-e", cmdString)
 	return cmd.Run()
 }
+func runCommand(app, command string) error {
+	switch runtime.GOOS {
+	case "linux":
+		return dbus(app, command)
+	case "darwin":
+		return osascript(app, command)
+	default:
+		return fmt.Errorf("unknown operating system")
+	}
+}
 
 func startMusic(app string) {
 	log.Infof("[%v] Starting music on %s", time.Now().Format(timeLayout), app)
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = dbus(app, "Play")
-	case "darwin":
-		err = osascript(app, "play")
-	default:
-		log.Fatalf("unknown operating system")
-	}
+	err := runCommand(app, "Play")
 	if err != nil {
 		log.Errorf("%v", err)
 	}
@@ -52,24 +54,16 @@ func startMusic(app string) {
 
 func stopMusic(app string) {
 	log.Infof("[%v] Stopping music on %s", time.Now().Format(timeLayout), app)
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = dbus(app, "Pause")
-	case "darwin":
-		err = osascript(app, "pause")
-	default:
-		log.Fatalf("unknown operating system")
-	}
+	err := runCommand(app, "Pause")
 	if err != nil {
 		log.Errorf("%v", err)
 	}
 }
 
-func Timer(actions chan Action, app string, minutes, interval int) {
+func PomodoroTimer(actions chan Action, app string, start, minutes, interval int) {
 	startMusic(app)
-	timer1 := time.NewTimer(time.Duration(minutes) * time.Minute)
-	log.Infof("Timer set for %d minutes", minutes)
+	timer1 := time.NewTimer(time.Duration(start) * time.Minute)
+	log.Infof("Timer set for %d minutes", start)
 	timer2 := &time.Timer{
 		C: make(chan time.Time),
 	}
@@ -102,8 +96,9 @@ func main() {
 	if runtime.GOOS != "windows" {
 		fmt.Println(runtime.GOOS)
 	}
-	var minutes, interval int
+	var minutes, interval, start int
 	var app string
+	flag.IntVar(&start, "start", 25, "starting point for time")
 	flag.IntVar(&minutes, "length", 25, "pomodoro length in minutes")
 	flag.IntVar(&interval, "break", 5, "pomodoro break in minutes")
 	flag.StringVar(&app, "app", "spotify", "music app to use")
@@ -112,7 +107,7 @@ func main() {
 	done := make(chan struct{})
 	actions := make(chan Action)
 
-	go Timer(actions, app, minutes, interval)
+	go PomodoroTimer(actions, app, start, minutes, interval)
 
 	scanner := bufio.NewScanner(os.Stdin)
 
