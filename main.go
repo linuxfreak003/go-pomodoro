@@ -33,69 +33,52 @@ func osascript(app, cs string) error {
 	cmd := exec.Command("osascript", "-e", cmdString)
 	return cmd.Run()
 }
-func runCommand(app, command string) error {
+func musicCommand(app, command string) error {
+	log.Infof("[%v] %s music on %s", time.Now().Format(timeLayout), command, app)
+	var err error
 	switch runtime.GOOS {
 	case "linux":
-		return dbus(app, command)
+		err = dbus(app, command)
 	case "darwin":
-		return osascript(app, command)
+		err = osascript(app, command)
 	default:
-		return fmt.Errorf("unknown operating system")
+		err = fmt.Errorf("unknown or unsupported operating system")
 	}
-}
-
-func startMusic(app string) {
-	log.Infof("[%v] Starting music on %s", time.Now().Format(timeLayout), app)
-	err := runCommand(app, "Play")
 	if err != nil {
 		log.Errorf("%v", err)
 	}
+	return err
 }
 
-func stopMusic(app string) {
-	log.Infof("[%v] Stopping music on %s", time.Now().Format(timeLayout), app)
-	err := runCommand(app, "Pause")
-	if err != nil {
-		log.Errorf("%v", err)
-	}
+func StartTimer(minutes int, app, command string) *time.Timer {
+	musicCommand(app, command)
+	log.Infof("Timer set for %d minutes", minutes)
+	return time.NewTimer(time.Duration(minutes) * time.Minute)
 }
 
 func PomodoroTimer(actions chan Action, app string, start, minutes, interval int) {
-	startMusic(app)
-	timer1 := time.NewTimer(time.Duration(start) * time.Minute)
-	log.Infof("Timer set for %d minutes", start)
-	timer2 := &time.Timer{
-		C: make(chan time.Time),
-	}
+	timer1 := StartTimer(start, app, "Play")
+	timer2 := &time.Timer{C: make(chan time.Time)}
 	for {
 		select {
 		case <-timer1.C:
-			stopMusic(app)
-			timer2 = time.NewTimer(time.Duration(interval) * time.Minute)
-			log.Infof("Timer set for %d minutes", interval)
+			timer2 = StartTimer(interval, app, "Pause")
 		case <-timer2.C:
-			startMusic(app)
-			timer1 = time.NewTimer(time.Duration(minutes) * time.Minute)
-			log.Infof("Timer set for %d minutes", minutes)
+			timer1 = StartTimer(minutes, app, "Play")
 		case a := <-actions:
 			switch a {
 			case Start:
-				startMusic(app)
+				musicCommand(app, "Play")
 			case Stop:
-				stopMusic(app)
+				musicCommand(app, "Pause")
 			case Reset:
-				startMusic(app)
-				timer1 = time.NewTimer(time.Duration(minutes) * time.Minute)
-				log.Infof("Timer set for %d minutes", minutes)
+				timer1 = StartTimer(minutes, app, "Play")
 			}
 		}
 	}
 }
 
 func main() {
-	if runtime.GOOS != "windows" {
-		fmt.Println(runtime.GOOS)
-	}
 	var minutes, interval, start int
 	var app string
 	flag.IntVar(&start, "start", 25, "starting point for time")
