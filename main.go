@@ -1,14 +1,18 @@
-package main
+package pomodoro
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"time"
 
+	pb "github.com/linuxfreak003/go-pomodoro/pb"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 type Action int
@@ -41,23 +45,47 @@ func stopMusic(app string) {
 	}
 }
 
-func Timer(actions chan Action, app string, minutes, interval int) {
-	startMusic(app)
-	timer1 := time.NewTimer(time.Duration(minutes) * time.Minute)
-	log.Infof("Timer set for %d minutes", minutes)
-	timer2 := &time.Timer{
+func Timer(actions chan Action, app, profile string) {
+	ctx := context.Background()
+	conn, err := grpc.Dial("127.0.0.1:50051", grpc.WithInsecure())
+	if err != nil {
+		log.Errorf("%v", err)
+	}
+	defer conn.Close()
+	client := pb.NewPomodoroClient(conn)
+	focusTimer := &time.Timer{
 		C: make(chan time.Time),
 	}
+	breakTimer := &time.Timer{
+		C: make(chan time.Time),
+	}
+
+	syncTimer := func() {
+		t, err := client.Sync(ctx, &pb.Profile{
+			Name: profile,
+		})
+		if err != nil {
+			log.Errorf("%v", err)
+		}
+
+		if t.GetState() == pb.State_BREAK {
+			breakTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
+		}
+		if t.GetState() == pb.State_FOCUS {
+			focusTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
+		}
+	}
+
+	startMusic(app)
+
 	for {
 		select {
-		case <-timer1.C:
+		case <-focusTimer.C:
 			stopMusic(app)
-			timer2 = time.NewTimer(time.Duration(interval) * time.Minute)
-			log.Infof("Timer set for %d minutes", interval)
-		case <-timer2.C:
+			syncTimer()
+		case <-breakTimer.C:
 			startMusic(app)
-			timer1 = time.NewTimer(time.Duration(minutes) * time.Minute)
-			log.Infof("Timer set for %d minutes", minutes)
+			syncTimer()
 		case a := <-actions:
 			switch a {
 			case Start:
@@ -66,25 +94,23 @@ func Timer(actions chan Action, app string, minutes, interval int) {
 				stopMusic(app)
 			case Reset:
 				startMusic(app)
-				timer1 = time.NewTimer(time.Duration(minutes) * time.Minute)
-				log.Infof("Timer set for %d minutes", minutes)
+				syncTimer()
 			}
 		}
 	}
 }
 
-func main() {
-	var minutes, interval int
-	var app string
-	flag.IntVar(&minutes, "length", 25, "pomodoro length in minutes")
-	flag.IntVar(&interval, "break", 5, "pomodoro break in minutes")
+func StartClient() {
+	var profile, app string
+
 	flag.StringVar(&app, "app", "spotify", "music app to use")
+	flag.StringVar(&profile, "profile", "Default", "profile to sync with")
 	flag.Parse()
 
 	done := make(chan struct{})
 	actions := make(chan Action)
 
-	go Timer(actions, app, minutes, interval)
+	go Timer(actions, app, profile)
 
 	scanner := bufio.NewScanner(os.Stdin)
 
@@ -111,4 +137,55 @@ func main() {
 	}()
 
 	<-done
+}
+
+type Server struct{}
+
+func DefaultProfileTime() *pb.Timer {
+	now := time.Now().UTC()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 18, 0, 0, 0, time.UTC)
+	remaining := now.Sub(start).Minutes()
+	focusPeriod := float64(25)
+	breaks := []float64{5, 5, 5, 15}
+	breakIndex := 0
+	for {
+		if remaining < focusPeriod {
+			return &pb.Timer{
+				Duration: focusPeriod - remaining,
+				State:    pb.State_FOCUS,
+			}
+		}
+
+		remaining -= focusPeriod
+
+		curBreak := breaks[breakIndex]
+		if remaining < curBreak {
+			return &pb.Timer{
+				Duration: focusPeriod - remaining,
+				State:    pb.State_BREAK,
+			}
+		}
+
+		remaining -= curBreak
+
+		breakIndex++
+		if breakIndex > len(breaks) {
+			breakIndex = 0
+		}
+	}
+}
+
+func (s *Server) Sync(ctx context.Context, req *pb.Profile) (*pb.Timer, error) {
+	// Default Profile
+	return DefaultProfileTime(), nil
+}
+
+func StartServer() {
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterPomodoroServer(grpcServer, &Server{})
+	grpcServer.Serve(lis)
 }
