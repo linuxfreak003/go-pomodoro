@@ -78,12 +78,12 @@ func Timer(actions chan Action, app, profile string) {
 		}
 
 		if t.GetState() == pb.State_BREAK {
-			stopMusic(app)
+			musicCommand(app, "Pause")
 			log.Infof("Break for %d minutes", int(t.Duration))
 			breakTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
 		}
 		if t.GetState() == pb.State_FOCUS {
-			startMusic(app)
+			musicCommand(app, "Play")
 			log.Infof("Focus for %d minutes", int(t.Duration))
 			focusTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
 		}
@@ -104,7 +104,7 @@ func Timer(actions chan Action, app, profile string) {
 			case Stop:
 				musicCommand(app, "Pause")
 			case Reset:
-				startMusic(app)
+				musicCommand(app, "Play")
 				syncTimer()
 
 			}
@@ -114,6 +114,7 @@ func Timer(actions chan Action, app, profile string) {
 
 func StartClient() {
 	var profile, app string
+
 	flag.StringVar(&app, "app", "spotify", "music app to use")
 	flag.StringVar(&profile, "profile", "Default", "profile to sync with")
 	flag.Parse()
