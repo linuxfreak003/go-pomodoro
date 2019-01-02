@@ -69,22 +69,24 @@ func Timer(actions chan Action, app, profile string) {
 		}
 
 		if t.GetState() == pb.State_BREAK {
+			stopMusic(app)
+			log.Infof("Break for %d minutes", int(t.Duration))
 			breakTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
 		}
 		if t.GetState() == pb.State_FOCUS {
+			startMusic(app)
+			log.Infof("Focus for %d minutes", int(t.Duration))
 			focusTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
 		}
 	}
 
-	startMusic(app)
+	syncTimer()
 
 	for {
 		select {
 		case <-focusTimer.C:
-			stopMusic(app)
 			syncTimer()
 		case <-breakTimer.C:
-			startMusic(app)
 			syncTimer()
 		case a := <-actions:
 			switch a {
@@ -169,7 +171,7 @@ func DefaultProfileTime() *pb.Timer {
 		remaining -= curBreak
 
 		breakIndex++
-		if breakIndex > len(breaks) {
+		if breakIndex >= len(breaks) {
 			breakIndex = 0
 		}
 	}
