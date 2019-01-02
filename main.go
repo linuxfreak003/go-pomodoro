@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
+	"strings"
 	"time"
 
 	pb "github.com/linuxfreak003/go-pomodoro/pb"
@@ -23,26 +25,33 @@ const (
 	Reset Action = iota
 )
 
-var layout = "06-02-01 15:04:05"
+var timeLayout = "06-02-01 15:04:05"
 
-func startMusic(app string) {
-	log.Infof("[%v] Starting music on %s", time.Now().Format(layout), app)
-	cmdString := fmt.Sprintf("tell app \"%s\" to play", app)
-	cmd := exec.Command("osascript", "-e", cmdString)
-	err := cmd.Run()
-	if err != nil {
-		log.Errorf("%v", err)
-	}
+func dbus(app, cs string) error {
+	cmdString := fmt.Sprintf("--print-reply --dest=org.mpris.MediaPlayer2.%s /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.%s", app, cs)
+	cmd := exec.Command("dbus-send", strings.Split(cmdString, " ")...)
+	return cmd.Run()
 }
-
-func stopMusic(app string) {
-	log.Infof("[%v] Stopping music on %s", time.Now().Format(layout), app)
-	cmdString := fmt.Sprintf("tell app \"%s\" to pause", app)
+func osascript(app, cs string) error {
+	cmdString := fmt.Sprintf("tell app \"%s\" to %s", app, cs)
 	cmd := exec.Command("osascript", "-e", cmdString)
-	err := cmd.Run()
+	return cmd.Run()
+}
+func musicCommand(app, command string) error {
+	log.Infof("[%v] %s music on %s", time.Now().Format(timeLayout), command, app)
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = dbus(app, command)
+	case "darwin":
+		err = osascript(app, command)
+	default:
+		err = fmt.Errorf("unknown or unsupported operating system")
+	}
 	if err != nil {
 		log.Errorf("%v", err)
 	}
+	return err
 }
 
 func Timer(actions chan Action, app, profile string) {
@@ -91,12 +100,13 @@ func Timer(actions chan Action, app, profile string) {
 		case a := <-actions:
 			switch a {
 			case Start:
-				startMusic(app)
+				musicCommand(app, "Play")
 			case Stop:
-				stopMusic(app)
+				musicCommand(app, "Pause")
 			case Reset:
 				startMusic(app)
 				syncTimer()
+
 			}
 		}
 	}
@@ -104,7 +114,6 @@ func Timer(actions chan Action, app, profile string) {
 
 func StartClient() {
 	var profile, app string
-
 	flag.StringVar(&app, "app", "spotify", "music app to use")
 	flag.StringVar(&profile, "profile", "Default", "profile to sync with")
 	flag.Parse()
