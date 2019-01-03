@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"runtime"
@@ -24,6 +23,12 @@ const (
 	Stop  Action = iota
 	Reset Action = iota
 )
+
+type Profile struct {
+	Name string
+	Host string
+	Port int
+}
 
 var timeLayout = "06-02-01 15:04:05"
 
@@ -54,13 +59,15 @@ func musicCommand(app, command string) error {
 	return err
 }
 
-func Timer(actions chan Action, app, profile string) {
+func Timer(actions chan Action, app string, profile Profile) {
 	ctx := context.Background()
-	conn, err := grpc.Dial("127.0.0.1:50051", grpc.WithInsecure())
+	addr := fmt.Sprintf("%s:%d", profile.Host, profile.Port)
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		log.Errorf("%v", err)
 	}
 	defer conn.Close()
+
 	client := pb.NewPomodoroClient(conn)
 	focusTimer := &time.Timer{
 		C: make(chan time.Time),
@@ -71,7 +78,7 @@ func Timer(actions chan Action, app, profile string) {
 
 	syncTimer := func() {
 		t, err := client.Sync(ctx, &pb.Profile{
-			Name: profile,
+			Name: profile.Name,
 		})
 		if err != nil {
 			log.Errorf("%v", err)
@@ -113,16 +120,24 @@ func Timer(actions chan Action, app, profile string) {
 }
 
 func StartClient() {
-	var profile, app string
+	var profile, app, host string
+	var port int
 
 	flag.StringVar(&app, "app", "spotify", "music app to use")
 	flag.StringVar(&profile, "profile", "Default", "profile to sync with")
+	flag.StringVar(&profile, "host", "127.0.0.1", "hostname")
+	flag.IntVar(&port, "port", 50051, "port")
 	flag.Parse()
 
 	done := make(chan struct{})
 	actions := make(chan Action)
 
-	go Timer(actions, app, profile)
+	p := Profile{
+		Name: profile,
+		Host: host,
+		Port: port,
+	}
+	go Timer(actions, app, p)
 
 	scanner := bufio.NewScanner(os.Stdin)
 
@@ -149,55 +164,4 @@ func StartClient() {
 	}()
 
 	<-done
-}
-
-type Server struct{}
-
-func DefaultProfileTime() *pb.Timer {
-	now := time.Now().UTC()
-	start := time.Date(now.Year(), now.Month(), now.Day(), 18, 0, 0, 0, time.UTC)
-	remaining := now.Sub(start).Minutes()
-	focusPeriod := float64(25)
-	breaks := []float64{5, 5, 5, 15}
-	breakIndex := 0
-	for {
-		if remaining < focusPeriod {
-			return &pb.Timer{
-				Duration: focusPeriod - remaining,
-				State:    pb.State_FOCUS,
-			}
-		}
-
-		remaining -= focusPeriod
-
-		curBreak := breaks[breakIndex]
-		if remaining < curBreak {
-			return &pb.Timer{
-				Duration: focusPeriod - remaining,
-				State:    pb.State_BREAK,
-			}
-		}
-
-		remaining -= curBreak
-
-		breakIndex++
-		if breakIndex >= len(breaks) {
-			breakIndex = 0
-		}
-	}
-}
-
-func (s *Server) Sync(ctx context.Context, req *pb.Profile) (*pb.Timer, error) {
-	// Default Profile
-	return DefaultProfileTime(), nil
-}
-
-func StartServer() {
-	lis, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	grpcServer := grpc.NewServer()
-	pb.RegisterPomodoroServer(grpcServer, &Server{})
-	grpcServer.Serve(lis)
 }
