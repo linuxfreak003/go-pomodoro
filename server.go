@@ -23,15 +23,20 @@ func NewServer() *Server {
 func DefaultProfileTime() *pb.Timer {
 	now := time.Now().UTC()
 	start := time.Date(now.Year(), now.Month(), now.Day(), 18, 0, 0, 0, time.UTC)
-	remaining := now.Sub(start).Minutes() // TODO: change this to Seconds/Ms?
-	focusPeriod := float64(25)
-	breaks := []float64{5, 5, 5, 15}
+	remaining := now.Sub(start) // Just leave as a time.Duration
+
+	Minutes := func(m int) time.Duration {
+		return time.Duration(m) * time.Minute
+	}
+
+	focusPeriod := Minutes(25)
+	breaks := []time.Duration{Minutes(5), Minutes(5), Minutes(5), Minutes(15)}
 	breakIndex := 0
 	for {
 		if remaining < focusPeriod {
 			return &pb.Timer{
-				Duration: focusPeriod - remaining,
-				State:    pb.State_FOCUS,
+				Nanoseconds: (focusPeriod - remaining).Nanoseconds(),
+				State:       pb.State_FOCUS,
 			}
 		}
 
@@ -40,8 +45,8 @@ func DefaultProfileTime() *pb.Timer {
 		curBreak := breaks[breakIndex]
 		if remaining < curBreak {
 			return &pb.Timer{
-				Duration: focusPeriod - remaining,
-				State:    pb.State_BREAK,
+				Nanoseconds: (focusPeriod - remaining).Nanoseconds(),
+				State:       pb.State_BREAK,
 			}
 		}
 
