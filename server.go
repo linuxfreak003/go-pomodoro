@@ -2,6 +2,7 @@ package pomodoro
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -62,8 +63,8 @@ func (s *Server) Sync(ctx context.Context, req *pb.Profile) (*pb.Timer, error) {
 	return DefaultProfileTime(), nil
 }
 
-func StartServer() {
-	lis, err := net.Listen("tcp", ":50051")
+func StartServer(port uint16) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

@@ -11,10 +11,12 @@ var serverCmd = &cobra.Command{
 	Short: "",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		pomo.StartServer()
+		pomo.StartServer(port)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(serverCmd)
+
+	serverCmd.Flags().Uint16VarP(&port, "port", "p", 50051, "port server should bind to")
 }

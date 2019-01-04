@@ -3,7 +3,6 @@ package pomodoro
 import (
 	"bufio"
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -27,7 +26,7 @@ const (
 type Profile struct {
 	Name string
 	Host string
-	Port int
+	Port uint16
 }
 
 var timeLayout = "06-02-01 15:04:05"
@@ -69,10 +68,7 @@ func Timer(actions chan Action, app string, profile Profile) {
 	defer conn.Close()
 
 	client := pb.NewPomodoroClient(conn)
-	focusTimer := &time.Timer{
-		C: make(chan time.Time),
-	}
-	breakTimer := &time.Timer{
+	stateTimer := &time.Timer{
 		C: make(chan time.Time),
 	}
 
@@ -81,18 +77,18 @@ func Timer(actions chan Action, app string, profile Profile) {
 			Name: profile.Name,
 		})
 		if err != nil {
-			log.Errorf("%v", err)
+			log.Panicf("%v", err)
 		}
 
-		if t.GetState() == pb.State_BREAK {
+		switch t.GetState() {
+		case pb.State_BREAK:
 			musicCommand(app, "Pause")
-			log.Infof("Break for %d minutes", int(t.Duration))
-			breakTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
-		}
-		if t.GetState() == pb.State_FOCUS {
+			log.Infof("Break for %.2f minutes", t.Duration)
+			stateTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
+		case pb.State_FOCUS:
 			musicCommand(app, "Play")
-			log.Infof("Focus for %d minutes", int(t.Duration))
-			focusTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
+			log.Infof("Focus for %.2f minutes", t.Duration)
+			stateTimer = time.NewTimer(time.Duration(t.Duration).Nanoseconds() * time.Minute)
 		}
 	}
 
@@ -100,9 +96,7 @@ func Timer(actions chan Action, app string, profile Profile) {
 
 	for {
 		select {
-		case <-focusTimer.C:
-			syncTimer()
-		case <-breakTimer.C:
+		case <-stateTimer.C:
 			syncTimer()
 		case a := <-actions:
 			switch a {
@@ -113,22 +107,12 @@ func Timer(actions chan Action, app string, profile Profile) {
 			case Reset:
 				musicCommand(app, "Play")
 				syncTimer()
-
 			}
 		}
 	}
 }
 
-func StartClient() {
-	var profile, app, host string
-	var port int
-
-	flag.StringVar(&app, "app", "spotify", "music app to use")
-	flag.StringVar(&profile, "profile", "Default", "profile to sync with")
-	flag.StringVar(&profile, "host", "127.0.0.1", "hostname")
-	flag.IntVar(&port, "port", 50051, "port")
-	flag.Parse()
-
+func StartClient(profile, app, host string, port uint16) {
 	done := make(chan struct{})
 	actions := make(chan Action)
 
