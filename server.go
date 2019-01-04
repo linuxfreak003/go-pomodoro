@@ -45,7 +45,7 @@ func DefaultProfileTime() *pb.Timer {
 		curBreak := breaks[breakIndex]
 		if remaining < curBreak {
 			return &pb.Timer{
-				Nanoseconds: (focusPeriod - remaining).Nanoseconds(),
+				Nanoseconds: (curBreak - remaining).Nanoseconds(),
 				State:       pb.State_BREAK,
 			}
 		}
