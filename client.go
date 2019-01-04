@@ -80,15 +80,16 @@ func Timer(actions chan Action, app string, profile Profile) {
 			log.Panicf("%v", err)
 		}
 
+		duration := time.Duration(t.Nanoseconds)
 		switch t.GetState() {
 		case pb.State_BREAK:
 			musicCommand(app, "Pause")
-			log.Infof("Break for %.2f minutes", t.Duration)
-			stateTimer = time.NewTimer(time.Duration(t.Duration) * time.Minute)
+			log.Infof("Break for %.2f minutes", duration.Minutes())
+			stateTimer = time.NewTimer(duration)
 		case pb.State_FOCUS:
 			musicCommand(app, "Play")
-			log.Infof("Focus for %.2f minutes", t.Duration)
-			stateTimer = time.NewTimer(time.Duration(t.Duration).Nanoseconds() * time.Minute)
+			log.Infof("Focus for %.2f minutes", duration.Minutes())
+			stateTimer = time.NewTimer(duration)
 		}
 	}
 
