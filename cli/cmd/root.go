@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+var port uint16
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
