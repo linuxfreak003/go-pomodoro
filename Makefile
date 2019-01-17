@@ -1,10 +1,14 @@
 all: build
 
 build: generate
-	go build -o go-pomodoro ./cli
+	go build
 
 generate: pb/pomodoro.proto
-	protoc --go_out=plugins=grpc:./ pb/pomodoro.proto
+	go generate
 
 run: build
 	./go-pomodoro
+
+clean:
+	rm -f go-pomodoro
+	rm -f pb/*.pb.go

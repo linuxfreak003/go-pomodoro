@@ -1,5 +1,4 @@
-//go:generate make generate
-package pomodoro
+package client
 
 import (
 	"bufio"

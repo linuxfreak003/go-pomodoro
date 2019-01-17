@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	pomo "github.com/linuxfreak003/go-pomodoro"
+	"github.com/linuxfreak003/go-pomodoro/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -16,7 +16,7 @@ var clientCmd = &cobra.Command{
 		app := viper.GetString("app")
 		host := viper.GetString("host")
 
-		pomo.StartClient(profile, app, host, port)
+		client.StartClient(profile, app, host, port)
 	},
 }
 

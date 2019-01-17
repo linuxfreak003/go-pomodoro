@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	pomo "github.com/linuxfreak003/go-pomodoro"
+	"github.com/linuxfreak003/go-pomodoro/server"
 	"github.com/spf13/cobra"
 )
 
@@ -11,7 +11,7 @@ var serverCmd = &cobra.Command{
 	Short: "",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		pomo.StartServer(port)
+		server.StartServer(port)
 	},
 }
 

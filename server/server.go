@@ -1,4 +1,4 @@
-package pomodoro
+package server
 
 import (
 	"context"
