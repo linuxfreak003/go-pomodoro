@@ -13,4 +13,4 @@
 
 go-pomodoro
 *.swp
-*.pb.go
+# *.pb.go
