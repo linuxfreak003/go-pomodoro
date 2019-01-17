@@ -14,8 +14,8 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "cli",
-	Short: "A brief description of your application",
+	Use:   "go-pomodoro",
+	Short: "go-pomodoro runs a pomodoro timer using spotify",
 	Long:  ``,
 }
 
