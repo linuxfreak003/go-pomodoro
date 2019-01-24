@@ -24,7 +24,7 @@ func NewServer() *Server {
 
 func DefaultProfileTime() *pb.Timer {
 	now := time.Now().UTC()
-	start := time.Date(now.Year(), now.Month(), now.Day(), 18, 0, 0, 0, time.UTC)
+	start := time.Date(now.Year(), now.Month(), now.Day(), 7, 0, 0, 0, time.UTC)
 	remaining := now.Sub(start) // Just leave as a time.Duration
 
 	Minutes := func(m int) time.Duration {
