@@ -3,12 +3,18 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"time"
 
+	"github.com/bluele/slack"
 	pb "github.com/linuxfreak003/go-pomodoro/pb"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+)
+
+const (
+	token       = "change-this-to-use-config-or-cli-param"
+	channelName = "pomodoro-spotify"
 )
 
 type Server struct {
@@ -73,7 +79,30 @@ func StartServer(port uint16) {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+
+	host := GetOutboundIP()
+	addrMsg := fmt.Sprintf("Serving on %s:%d", host, port)
+	fmt.Println(addrMsg)
+
+	api := slack.New(token)
+	err = api.ChatPostMessage(channelName, addrMsg, nil)
+	if err != nil {
+		log.Warnf("slack message not sent: %v", err)
+	}
+
 	grpcServer := grpc.NewServer()
 	pb.RegisterPomodoroServer(grpcServer, NewServer())
 	grpcServer.Serve(lis)
+}
+
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP
 }
