@@ -12,11 +12,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	token       = "change-this-to-use-config-or-cli-param"
-	channelName = "pomodoro-spotify"
-)
-
 type Server struct {
 	Profiles map[*pb.Profile]*pb.Timer
 }
@@ -74,7 +69,7 @@ func (s *Server) Sync(ctx context.Context, req *pb.Profile) (*pb.Timer, error) {
 	return DefaultProfileTime(), nil
 }
 
-func StartServer(port uint16) {
+func StartServer(port uint16, token, channelName string) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

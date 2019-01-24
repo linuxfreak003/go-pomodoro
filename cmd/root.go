@@ -10,7 +10,7 @@ import (
 )
 
 var port uint16
-var cfgFile string
+var cfgFile, token, channel string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
