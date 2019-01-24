@@ -1,16 +1,28 @@
 # go-pomodoro
-pomodoro timer written in Go
+Pomodoro timer written in Go
 
 ## Install
 
 `go get github.com/linuxfreak003/go-pomodoro`
 
+OR
+
+1. Clone the repo
+1. `cd` into the repo
+1. run `go install`
+
 ## Run
 
-Running `go-pomodoro` without any arguments will set the timer to a 25 minute focus and a 5 minute break.
+go-pomodoro is setup with a server and client model. To run you will first need to run `go-pomodoro server` or `go-pomodoro client`
 
-Possible options for arguments:
- * `-start #` - Sets the initial starting point of the timer - default 25 min
- * `-length #` - Sets the length of the focus time - default 25
- * `-break #` - Sets the length of the break time - default 5
- * `-app <string>` - Specifies what app to use (only spotify tested)
+The possible options on the server are:
+* `-p <port>` - default 50051
+* `-t <slack_token>` - default ""
+* `-c <slack_channel` - default "pomodoro-spotify"
+
+The possible options on the client are:
+* `--app <application>` - default "spotify" (spotify is also the only app that has been tested)
+* `--host <host_ip>` - default "127.0.0.1"
+* `-p <port>` - default 50051
+
+The options will also be shown if you add `-h` to any of the commands
