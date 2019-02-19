@@ -91,11 +91,11 @@ func Timer(actions chan Action, app string, profile Profile) {
 		switch t.GetState() {
 		case pb.State_BREAK:
 			musicCommand(app, "Pause")
-			log.Infof("Break for %.2f minutes", duration.Minutes())
+			log.Infof("Break for %s", duration.Truncate(time.Second))
 			stateTimer = timer.NewTimer(duration)
 		case pb.State_FOCUS:
 			musicCommand(app, "Play")
-			log.Infof("Focus for %.2f minutes", duration.Minutes())
+			log.Infof("Focus for %s", duration.Truncate(time.Second))
 			stateTimer = timer.NewTimer(duration)
 		}
 	}
