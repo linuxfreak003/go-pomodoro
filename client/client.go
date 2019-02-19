@@ -11,6 +11,7 @@ import (
 	"time"
 
 	pb "github.com/linuxfreak003/go-pomodoro/pb"
+	"github.com/linuxfreak003/timer"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -18,9 +19,10 @@ import (
 type Action int
 
 const (
-	Start Action = iota
-	Stop  Action = iota
-	Reset Action = iota
+	Start     Action = iota
+	Stop      Action = iota
+	Reset     Action = iota
+	Remaining Action = iota
 )
 
 type Profile struct {
@@ -68,9 +70,14 @@ func Timer(actions chan Action, app string, profile Profile) {
 	defer conn.Close()
 
 	client := pb.NewPomodoroClient(conn)
-	stateTimer := &time.Timer{
-		C: make(chan time.Time),
-	}
+	stateTimer := &timer.Timer{}
+
+	go func() {
+		for {
+			time.Sleep(time.Second * 1)
+			fmt.Printf("\r> %s\t$ ", stateTimer.Remaining().Truncate(time.Second))
+		}
+	}()
 
 	syncTimer := func() {
 		t, err := client.Sync(ctx, &pb.Profile{
@@ -85,11 +92,11 @@ func Timer(actions chan Action, app string, profile Profile) {
 		case pb.State_BREAK:
 			musicCommand(app, "Pause")
 			log.Infof("Break for %.2f minutes", duration.Minutes())
-			stateTimer = time.NewTimer(duration)
+			stateTimer = timer.NewTimer(duration)
 		case pb.State_FOCUS:
 			musicCommand(app, "Play")
 			log.Infof("Focus for %.2f minutes", duration.Minutes())
-			stateTimer = time.NewTimer(duration)
+			stateTimer = timer.NewTimer(duration)
 		}
 	}
 
@@ -108,6 +115,11 @@ func Timer(actions chan Action, app string, profile Profile) {
 			case Reset:
 				musicCommand(app, "Play")
 				syncTimer()
+			case Remaining:
+				d := stateTimer.Remaining()
+				log.Infof("Remaining Time: %s", d.Truncate(time.Second).String())
+			default:
+				log.Warnf("Unrecognized action requested")
 			}
 		}
 	}
@@ -130,7 +142,6 @@ func StartClient(profile, app, host string, port uint16) {
 	go func() {
 		for {
 			time.Sleep(time.Second * 1)
-			fmt.Printf("$ ")
 			scanner.Scan()
 			text := scanner.Text()
 			switch text {
@@ -138,10 +149,14 @@ func StartClient(profile, app, host string, port uint16) {
 				actions <- Start
 			case "stop":
 				actions <- Stop
+			case "show", "left":
+				actions <- Remaining
 			case "reset":
 				actions <- Reset
 			case "q", "quit", "exit":
 				done <- struct{}{}
+			case "":
+				// Do nothing
 			default:
 				log.Warnf("command not recognized: %s\n", text)
 			}
