@@ -77,7 +77,7 @@ func StartServer(port uint16, token, channelName string) {
 
 	host := GetOutboundIP()
 	addrMsg := fmt.Sprintf("Server running, connect with `go-pomodoro client --host %s --port %d`", host, port)
-	fmt.Println(addrMsg)
+	log.Infof(addrMsg)
 
 	api := slack.New(token)
 	err = api.ChatPostMessage(channelName, addrMsg, nil)

@@ -1,10 +1,8 @@
 package client
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -12,6 +10,7 @@ import (
 
 	pb "github.com/linuxfreak003/go-pomodoro/pb"
 	"github.com/linuxfreak003/timer"
+	term "github.com/nsf/termbox-go"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -19,8 +18,12 @@ import (
 type Action int
 
 const (
-	Start     Action = iota
-	Stop      Action = iota
+	Play     Action = iota
+	Pause    Action = iota
+	Toggle   Action = iota
+	Previous Action = iota
+	Next     Action = iota
+
 	Reset     Action = iota
 	Remaining Action = iota
 )
@@ -44,6 +47,7 @@ func osascript(app, cs string) error {
 	return cmd.Run()
 }
 func musicCommand(app, command string) error {
+	fmt.Println()
 	log.Infof("[%v] %s music on %s", time.Now().Format(timeLayout), command, app)
 	var err error
 	switch runtime.GOOS {
@@ -72,10 +76,11 @@ func Timer(actions chan Action, app string, profile Profile) {
 	client := pb.NewPomodoroClient(conn)
 	stateTimer := &timer.Timer{}
 
+	// Display remaining time
 	go func() {
 		for {
 			time.Sleep(time.Second * 1)
-			fmt.Printf("\r> %s\t$ ", stateTimer.Remaining().Truncate(time.Second))
+			fmt.Printf("\r> %s", stateTimer.Remaining().Truncate(time.Second))
 		}
 	}()
 
@@ -108,10 +113,16 @@ func Timer(actions chan Action, app string, profile Profile) {
 			syncTimer()
 		case a := <-actions:
 			switch a {
-			case Start:
+			case Play:
 				musicCommand(app, "Play")
-			case Stop:
+			case Pause:
 				musicCommand(app, "Pause")
+			case Toggle:
+				musicCommand(app, "PlayPause")
+			case Previous:
+				musicCommand(app, "Previous")
+			case Next:
+				musicCommand(app, "Next")
 			case Reset:
 				musicCommand(app, "Play")
 				syncTimer()
@@ -119,13 +130,20 @@ func Timer(actions chan Action, app string, profile Profile) {
 				d := stateTimer.Remaining()
 				log.Infof("Remaining Time: %s", d.Truncate(time.Second).String())
 			default:
-				log.Warnf("Unrecognized action requested")
+				// This should never happen
+				log.Fatalf("Unrecognized action requested")
 			}
 		}
 	}
 }
 
 func StartClient(profile, app, host string, port uint16) {
+	err := term.Init()
+	if err != nil {
+		log.Fatalf("could not start termbox-go: %v", err)
+	}
+	defer term.Close()
+
 	done := make(chan struct{})
 	actions := make(chan Action)
 
@@ -136,32 +154,39 @@ func StartClient(profile, app, host string, port uint16) {
 	}
 	go Timer(actions, app, p)
 
-	scanner := bufio.NewScanner(os.Stdin)
-
-	// command line interface
 	go func() {
 		for {
-			time.Sleep(time.Second * 1)
-			scanner.Scan()
-			text := scanner.Text()
-			switch text {
-			case "start":
-				actions <- Start
-			case "stop":
-				actions <- Stop
-			case "show", "left":
-				actions <- Remaining
-			case "reset":
-				actions <- Reset
-			case "q", "quit", "exit":
-				done <- struct{}{}
-			case "":
-				// Do nothing
+			switch ev := term.PollEvent(); ev.Type {
+			case term.EventKey:
+				switch ev.Key {
+				case term.KeySpace:
+					actions <- Toggle
+				case term.KeyEsc:
+					done <- struct{}{}
+				default:
+					fmt.Println(ev.Key)
+					switch ev.Ch {
+					case 'q':
+						done <- struct{}{}
+					case 'r':
+						actions <- Reset
+					case 'p':
+						actions <- Previous
+					case 'n':
+						actions <- Next
+					default:
+						// ignore event
+					}
+				}
 			default:
-				log.Warnf("command not recognized: %s\n", text)
+				// ignore event
 			}
 		}
 	}()
 
 	<-done
+	for n := 0; n < 10; n++ {
+		time.Sleep(time.Millisecond * 200)
+		fmt.Printf("\rShutting down." + strings.Repeat(".", n))
+	}
 }
