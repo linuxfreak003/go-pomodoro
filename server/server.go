@@ -80,7 +80,9 @@ func StartServer(port uint16, token, channelName string) {
 	log.Infof(addrMsg)
 
 	api := slack.New(token)
-	err = api.ChatPostMessage(channelName, addrMsg, nil)
+	err = api.ChatPostMessage(channelName, addrMsg, &slack.ChatPostMessageOpt{
+		AsUser: true,
+	})
 	if err != nil {
 		log.Warnf("slack message not sent: %v", err)
 	}
